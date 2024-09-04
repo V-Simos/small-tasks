@@ -25,6 +25,10 @@
         return [];
     }
 
+    function deleteTodo(todo: Todo): void {
+        todos = todos.filter(t => t !== todo); // Remove the todo
+    }
+
     // Reactive array of todos
     let todos = $state<Todo[]>(loadTodos());
 
@@ -59,6 +63,38 @@
             addTodo();
         }
     }
+
+    let hoveringOverList;
+	
+	function dragStart(event: DragEvent, listIndex: number, taskIndex: number) {
+		const data = {listIndex, taskIndex};
+        event.dataTransfer?.setData('text/plain', JSON.stringify(data));
+	}
+
+    function drop(event: DragEvent, targetIndex: number, listIndex: number) {
+        event.preventDefault();
+        const json = event.dataTransfer?.getData('text/plain');
+        if (json !== undefined) {
+            const data = JSON.parse(json);
+
+            // Remove the item from the original list
+            const [movedTodo] = todos.splice(data.taskIndex, 1);
+
+            // Determine if moving between lists (active/completed) or within the same list
+            if (todos[listIndex].done !== movedTodo.done) {
+                movedTodo.done = !movedTodo.done;
+            }
+
+            // Insert the item at the target position
+            todos.splice(targetIndex, 0, movedTodo);
+
+            // Trigger reactivity by reassigning todos
+            todos = [...todos];
+
+            hoveringOverList = null;
+        }
+    }
+
 </script>
 
 <style>
@@ -79,23 +115,28 @@
         color: #fff;
     }
     .todo-wrapper {
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center;
         cursor: pointer;
         padding: 0.5em;
         margin-bottom: 0.5em;
+    }
+    .todo-btn {
         border: none;
         background: none;
         text-align: left;
         width: 100%;
+        margin-bottom: 0;
     }
     .todo-wrapper:hover {
         background-color: #505050;
     }
-    .completed button {
-        text-decoration: line-through;
+    .completed {
         color: #fff;
         background-color: rgb(1, 94, 1);
     }
-    .completed .todo-wrapper:hover {
+    .completed:hover {
         color: #fff;
         background-color: rgb(1, 94, 1);
     }
@@ -104,7 +145,7 @@
         gap: 0.5em;
         margin-bottom: 1em;
     }
-    button {
+    .btn {
         padding: 0.5em 1em;
         cursor: pointer;
         border-radius: 5px;
@@ -113,8 +154,14 @@
         outline: none;
         transition: all ease .3s;
     }
-    button:hover {
+    .btn:hover {
         background-color: #013b25;
+    }
+    .delete-btn {
+        background: none; 
+        border: none; 
+        color: #fff; 
+        cursor: pointer;
     }
     ul {
         list-style: none;
@@ -140,6 +187,9 @@
     h2:first-child {
         margin-top: 0;
     }
+    button {
+        cursor: pointer;
+    }
 </style>
 
 <main>
@@ -152,7 +202,7 @@
                 onkeydown={handleKeydown}
                 placeholder="Create a todo app..."
             />
-            <button onclick={addTodo}>
+            <button class="btn" onclick={addTodo}>
                 Submit
             </button>
         </div>
@@ -160,27 +210,51 @@
         <!-- Display the list of active todos -->
         <h2>Active Tasks</h2>
         <ul>
-            {#each activeTodos as todo}
-                <li>
-                    <button class="todo-wrapper" onclick={() => toggleTodo(todo)}>
+            {#each activeTodos as todo, index}
+                <li
+                    class="todo-wrapper {todo.done ? 'completed' : ''}"
+                    draggable="true"
+                    ondragstart={(event) => dragStart(event, 0, index)}
+                    ondrop={(event) => drop(event, index, 0)}
+                    ondragover={(event) => event.preventDefault()}
+                >
+                    <button class="todo-btn" onclick={() => toggleTodo(todo)}>
                         <span>{todo.text}</span>
+                    </button>
+                    <button class="delete-btn" onclick={() => deleteTodo(todo)}>
+                        🗑️
                     </button>
                 </li>
             {/each}
         </ul>
+        
+        
+        
     
         <!-- Display the list of completed todos -->
         <div class="completed-section">
             <h2>Completed Tasks</h2>
             <ul>
-                {#each completedTodos as todo}
-                    <li class="completed">
-                        <button class="todo-wrapper" onclick={() => toggleTodo(todo)}>
+                {#each completedTodos as todo, index}
+                    <li
+                        class="todo-wrapper {todo.done ? 'completed' : ''}"
+                        draggable="true"
+                        ondragstart={(event) => dragStart(event, 1, index)}
+                        ondrop={(event) => drop(event, index, 1)}
+                        ondragover={(event) => event.preventDefault()}
+                    >
+                        <button class="todo-btn" onclick={() => toggleTodo(todo)}>
                             <span>{todo.text}</span>
+                        </button>
+                        <button class="delete-btn" onclick={() => deleteTodo(todo)}>
+                            🗑️
                         </button>
                     </li>
                 {/each}
             </ul>
+            
+            
         </div>
+        
     </div>
 </main>
